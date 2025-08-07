@@ -1,7 +1,9 @@
 ﻿using LegacyModernization.Core.Configuration;
 using LegacyModernization.Core.Logging;
+using LegacyModernization.Core.Pipeline;
 using Serilog;
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
 
@@ -11,6 +13,8 @@ namespace LegacyModernization.Pipeline
     {
         static async Task<int> Main(string[] args)
         {
+            var startTime = DateTime.Now;
+            
             // Initialize configuration
             var projectBase = Path.GetDirectoryName(AppContext.BaseDirectory) 
                 ?? throw new InvalidOperationException("Could not determine project base directory");
@@ -20,12 +24,15 @@ namespace LegacyModernization.Pipeline
             var config = PipelineConfiguration.CreateDefault(solutionRoot);
 
             // Create logger
-            var logger = Core.Logging.LoggerConfiguration.CreateLogger(config.LogPath, "initialization");
+            var logger = Core.Logging.LoggerConfiguration.CreateLogger(config.LogPath, "pipeline");
+            
+            // Create progress reporter
+            var progressReporter = new ProgressReporter(logger, false);
             
             try
             {
-                // Display banner
-                DisplayBanner(logger);
+                // Display startup banner with timestamp (equivalent to legacy script banner and date)
+                progressReporter.DisplayStartupBanner();
                 
                 // Parse arguments
                 var arguments = ParseArguments(args);
@@ -35,45 +42,84 @@ namespace LegacyModernization.Pipeline
                     return 1;
                 }
 
-                // Validate arguments
-                if (!arguments.IsValid())
+                // Update progress reporter verbosity based on arguments
+                progressReporter = new ProgressReporter(logger, arguments.Verbose);
+
+                // Enhanced argument validation using ArgumentValidator
+                var validationResult = ArgumentValidator.ValidateArguments(arguments);
+                if (!validationResult.IsValid)
                 {
-                    logger.Error("Invalid arguments provided");
+                    logger.Error("Argument validation failed: {ErrorMessage}", validationResult.ErrorMessage);
+                    Console.WriteLine($"Error: {validationResult.ErrorMessage}");
                     DisplayUsage();
                     return 1;
                 }
 
                 logger.Information("Starting Legacy Modernization Pipeline for job {JobNumber}", arguments.JobNumber);
-                logger.Information("Configuration: {Configuration}", config.ToString());
+                progressReporter.LogConfiguration(config);
 
-                // TODO: Initialize and run pipeline steps
+                // Initialize pipeline progress tracking
+                progressReporter.InitializeProgress(6); // 6 major steps in the full pipeline
+
+                // Execute Task 2.1: Parameter Validation & Environment Setup Component
+                var containerComponent = new ContainerParameterValidationComponent(logger, progressReporter, config);
+                var validationSuccess = await containerComponent.ExecuteAsync(arguments);
+
+                if (!validationSuccess)
+                {
+                    logger.Error("Parameter validation and environment setup failed");
+                    var duration = DateTime.Now - startTime;
+                    progressReporter.ReportCompletion(false, duration);
+                    return 1;
+                }
+
+                // Execute Task 2.2: Supplemental File Processing Component
+                var supplementalComponent = new SupplementalFileProcessingComponent(logger, progressReporter, config);
+                var supplementalSuccess = await supplementalComponent.ExecuteAsync(arguments);
+
+                if (!supplementalSuccess)
+                {
+                    logger.Error("Supplemental file processing failed");
+                    var duration = DateTime.Now - startTime;
+                    progressReporter.ReportCompletion(false, duration);
+                    return 1;
+                }
+
+                // Dry run mode check
+                if (arguments.DryRun)
+                {
+                    logger.Information("Dry run completed successfully - validation passed");
+                    Console.WriteLine("✓ Dry run completed successfully - all validations passed");
+                    var dryRunDuration = DateTime.Now - startTime;
+                    progressReporter.ReportCompletion(true, dryRunDuration);
+                    return 0;
+                }
+
+                // TODO: Execute remaining pipeline steps (Tasks 2.3-2.5)
                 // This will be implemented in subsequent tasks
+                progressReporter.ReportStep("Container Step 1", "Not yet implemented - placeholder");
+                progressReporter.ReportStep("MB2000 Conversion", "Not yet implemented - placeholder");
+                progressReporter.ReportStep("E-bill Split Processing", "Not yet implemented - placeholder");
+                progressReporter.ReportStep("Pipeline Integration", "Not yet implemented - placeholder");
 
-                logger.Information("Pipeline initialization completed successfully");
+                logger.Information("Tasks 2.1-2.2 - Parameter Validation, Environment Setup, and Supplemental File Processing completed successfully");
+                var totalDuration = DateTime.Now - startTime;
+                progressReporter.ReportCompletion(true, totalDuration);
                 return 0;
+
             }
             catch (Exception ex)
             {
-                logger.Error(ex, "Fatal error during pipeline initialization");
+                logger.Error(ex, "Fatal error during pipeline execution");
+                Console.WriteLine($"Fatal error: {ex.Message}");
+                var errorDuration = DateTime.Now - startTime;
+                progressReporter.ReportCompletion(false, errorDuration);
                 return 1;
             }
             finally
             {
                 Log.CloseAndFlush();
             }
-        }
-
-        private static void DisplayBanner(ILogger logger)
-        {
-            var banner = @"
-==============================================================================
-                    Legacy Modernization Pipeline
-                         Monthly Bill Process 2503
-                               PoC Version 1.0
-==============================================================================";
-            
-            Console.WriteLine(banner);
-            logger.Information("Legacy Modernization Pipeline started at {Timestamp}", DateTime.Now);
         }
 
         private static PipelineArguments? ParseArguments(string[] args)

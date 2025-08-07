@@ -149,20 +149,13 @@ namespace LegacyModernization.Core.Configuration
         public string LogLevel { get; set; } = "Information";
 
         /// <summary>
-        /// Validates command line arguments
+        /// Validates command line arguments using enhanced ArgumentValidator
         /// </summary>
         /// <returns>True if arguments are valid</returns>
         public bool IsValid()
         {
-            // Job number should be numeric and within expected range
-            if (!int.TryParse(JobNumber, out int jobNum) || jobNum <= 0)
-                return false;
-
-            // Source file should exist if specified
-            if (!string.IsNullOrEmpty(SourceFilePath) && !File.Exists(SourceFilePath))
-                return false;
-
-            return true;
+            var validationResult = ArgumentValidator.ValidateArguments(this);
+            return validationResult.IsValid;
         }
 
         /// <summary>
