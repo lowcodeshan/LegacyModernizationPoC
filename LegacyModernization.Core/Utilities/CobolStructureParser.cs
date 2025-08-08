@@ -22,68 +22,155 @@ namespace LegacyModernization.Core.Utilities
         }
 
         /// <summary>
-        /// Parse the MB2000 COBOL structure from the actual COBOL file
+        /// Parse the MB2000 COBOL structure from actual COBOL copybook file with hierarchical position calculation
         /// </summary>
         public MB2000RecordStructure ParseMB2000Structure()
         {
-            _logger.Information("Parsing COBOL structure from {Path}", CobolDataStructurePath);
+            _logger.Information("Parsing COBOL structure from file: {FilePath}", CobolDataStructurePath);
             
             if (!File.Exists(CobolDataStructurePath))
             {
-                _logger.Warning("COBOL structure file not found at {Path}, using hardcoded structure", CobolDataStructurePath);
-                return CreateHardcodedStructure();
+                _logger.Error("COBOL structure file not found: {FilePath}", CobolDataStructurePath);
+                throw new FileNotFoundException($"COBOL structure file not found: {CobolDataStructurePath}");
             }
 
-            var lines = File.ReadAllLines(CobolDataStructurePath);
             var structure = new MB2000RecordStructure();
-            var fieldStack = new Stack<CobolFieldDefinition>();
-            int currentPosition = 1;
+            var lines = File.ReadAllLines(CobolDataStructurePath);
+            
+            // Parse hierarchically to calculate correct positions
+            var parsedFields = ParseCobolHierarchy(lines);
+            
+            // Calculate positions for elementary items only
+            CalculateFieldPositions(parsedFields);
+            
+            // Add only elementary items to structure (items with actual data)
+            var elementaryFields = GetElementaryFields(parsedFields);
+            foreach (var field in elementaryFields)
+            {
+                structure.Fields.Add(field);
+                _logger.Debug("Added field: {Name} at position {Position}, length {Length}, type {DataType}", 
+                    field.Name, field.Position, field.Length, field.DataType);
+            }
 
+            structure.TotalLength = elementaryFields.Any() ? 
+                elementaryFields.Max(f => f.Position + f.Length - 1) : 0;
+            _logger.Information("Parsed COBOL structure: {FieldCount} elementary fields, total length {Length}", 
+                structure.Fields.Count, structure.TotalLength);
+
+            return structure;
+        }
+        
+        /// <summary>
+        /// Get all elementary fields from hierarchical structure
+        /// </summary>
+        private List<CobolFieldDefinition> GetElementaryFields(List<CobolFieldDefinition> fields)
+        {
+            var elementaryFields = new List<CobolFieldDefinition>();
+            GetElementaryFieldsRecursive(fields, elementaryFields);
+            return elementaryFields;
+        }
+        
+        private void GetElementaryFieldsRecursive(List<CobolFieldDefinition> fields, List<CobolFieldDefinition> elementaryFields)
+        {
+            foreach (var field in fields)
+            {
+                if (field.DataType != CobolDataType.Group)
+                {
+                    elementaryFields.Add(field);
+                }
+                else if (field.Children.Count > 0)
+                {
+                    GetElementaryFieldsRecursive(field.Children, elementaryFields);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Parse COBOL structure hierarchically to maintain parent-child relationships
+        /// </summary>
+        private List<CobolFieldDefinition> ParseCobolHierarchy(string[] lines)
+        {
+            var fields = new List<CobolFieldDefinition>();
+            var stack = new Stack<CobolFieldDefinition>();
+            
             foreach (var line in lines)
             {
                 if (IsCobolFieldDefinition(line))
                 {
-                    var field = ParseCobolLine(line, currentPosition);
+                    var field = ParseCobolLine(line, 0); // Position will be calculated later
                     if (field != null)
                     {
-                        // Handle hierarchy
-                        while (fieldStack.Count > 0 && fieldStack.Peek().Level >= field.Level)
+                        // Build hierarchy based on levels
+                        while (stack.Count > 0 && stack.Peek().Level >= field.Level)
                         {
-                            fieldStack.Pop();
+                            stack.Pop();
                         }
-
-                        if (fieldStack.Count > 0)
+                        
+                        if (stack.Count > 0)
                         {
-                            field.Parent = fieldStack.Peek();
-                            fieldStack.Peek().Children.Add(field);
+                            var parent = stack.Peek();
+                            field.Parent = parent;
+                            parent.Children.Add(field);
                         }
                         else
                         {
-                            structure.Fields.Add(field);
+                            fields.Add(field);
                         }
-
-                        fieldStack.Push(field);
                         
-                        // Update position for next field
-                        if (field.DataType != CobolDataType.Group)
-                        {
-                            currentPosition += field.Length;
-                        }
+                        stack.Push(field);
                     }
                 }
             }
-
-            structure.TotalLength = currentPosition - 1;
-            _logger.Information("Parsed COBOL structure with {FieldCount} fields, total length {Length}", 
-                structure.Fields.Count, structure.TotalLength);
             
-            return structure;
+            return fields;
+        }
+
+        /// <summary>
+        /// Calculate actual byte positions for COBOL fields based on hierarchy
+        /// </summary>
+        private void CalculateFieldPositions(List<CobolFieldDefinition> fields)
+        {
+            CalculatePositionsRecursive(fields, 1); // COBOL positions start at 1
+        }
+        
+        private int CalculatePositionsRecursive(List<CobolFieldDefinition> fields, int startPosition)
+        {
+            var currentPosition = startPosition;
+            
+            foreach (var field in fields)
+            {
+                field.Position = currentPosition;
+                
+                if (field.DataType == CobolDataType.Group && field.Children.Count > 0)
+                {
+                    // Group items: calculate position from children
+                    var childEndPosition = CalculatePositionsRecursive(field.Children, currentPosition);
+                    field.Length = childEndPosition - currentPosition;
+                    currentPosition = childEndPosition;
+                }
+                else if (field.DataType != CobolDataType.Group)
+                {
+                    // Elementary items: consume actual bytes
+                    currentPosition += field.Length;
+                }
+            }
+            
+            return currentPosition;
         }
 
         private bool IsCobolFieldDefinition(string line)
         {
-            // Match COBOL field definitions like "05 MB-CLIENT PIC X(4)."
-            return Regex.IsMatch(line.Trim(), @"^\d{2}\s+[\w-]+(\s+PIC\s+|\.|\s+REDEFINES\s+)");
+            // Skip comment lines and empty lines
+            if (string.IsNullOrWhiteSpace(line) || line.TrimStart().StartsWith("*"))
+                return false;
+
+            var trimmed = line.Trim();
+            
+            // Match COBOL field definitions with level numbers (01, 05, 10, 15, 20)
+            // Handle various patterns like:
+            // "01 MB-REC.", "05 MB-CLIENT-ID-FIELDS.", "10 MB-CLIENT.", "15 MB-CLIENT3 PIC 9(3)."
+            return Regex.IsMatch(trimmed, @"^\d{2}\s+[\w-]+(\s+PIC\s+|\.|\s+REDEFINES\s+|$)") &&
+                   !trimmed.Contains("REDEFINES"); // Skip REDEFINES for now to avoid duplicates
         }
 
         private CobolFieldDefinition? ParseCobolLine(string line, int position)
@@ -92,8 +179,10 @@ namespace LegacyModernization.Core.Utilities
             {
                 var trimmed = line.Trim();
                 
-                // Parse: "05 MB-CLIENT-ID-FIELDS."
-                var match = Regex.Match(trimmed, @"^(\d{2})\s+([\w-]+)(?:\s+PIC\s+([\w\(\)V]+))?(?:\s+COMP-?(\d+)?)?\.?");
+                // Parse COBOL field definitions with comprehensive regex
+                // Handle patterns like:
+                // "15 MB-CLIENT3 PIC 9(3).", "10 MB-ACCOUNT PIC S9(13) COMP-3.", "05 MB-CLIENT-ID-FIELDS."
+                var match = Regex.Match(trimmed, @"^(\d{2})\s+([\w-]+)(?:\s+PIC\s+([\w\(\)VS]+))?(?:\s+(COMP-?\d*))?\.?");
                 
                 if (!match.Success) return null;
 
@@ -101,7 +190,7 @@ namespace LegacyModernization.Core.Utilities
                 {
                     Level = int.Parse(match.Groups[1].Value),
                     Name = match.Groups[2].Value,
-                    Position = position
+                    Position = 0 // Will be calculated later in hierarchical processing
                 };
 
                 // Parse PIC clause if present
@@ -112,19 +201,25 @@ namespace LegacyModernization.Core.Utilities
                 }
                 else
                 {
-                    // Group item
+                    // Group item - calculate length based on subordinate items
                     field.DataType = CobolDataType.Group;
-                    field.Length = 0;
+                    field.Length = 0; // Will be calculated later
                 }
 
                 // Handle COMP fields
                 if (match.Groups[4].Success)
                 {
                     var compType = match.Groups[4].Value;
-                    if (compType == "3")
+                    if (compType.Contains("3") || compType == "COMP-3")
                     {
                         field.DataType = CobolDataType.Packed;
                         field.IsComputed = true;
+                        // For COMP-3, calculate actual storage length
+                        if (field.Picture != null)
+                        {
+                            var digits = ExtractDigitCount(field.Picture);
+                            field.Length = (digits + 1) / 2 + 1; // COMP-3 formula
+                        }
                     }
                     else
                     {
@@ -166,13 +261,51 @@ namespace LegacyModernization.Core.Utilities
                     CobolDataType.SignedNumeric : CobolDataType.Numeric;
                 field.Length = ExtractLength(pic);
                 
-                // Handle decimal places (V9(2))
-                var decimalMatch = Regex.Match(pic, @"V9\((\d+)\)");
+                // Handle decimal places (V9(2) or V99)
+                var decimalMatch = Regex.Match(pic, @"V9+\(?(\d+)?\)?");
                 if (decimalMatch.Success)
                 {
-                    field.DecimalPlaces = int.Parse(decimalMatch.Groups[1].Value);
+                    if (decimalMatch.Groups[1].Success)
+                    {
+                        field.DecimalPlaces = int.Parse(decimalMatch.Groups[1].Value);
+                    }
+                    else
+                    {
+                        // Count V9s manually
+                        var vIndex = pic.IndexOf('V');
+                        if (vIndex >= 0)
+                        {
+                            var afterV = pic.Substring(vIndex + 1);
+                            field.DecimalPlaces = afterV.TakeWhile(c => c == '9').Count();
+                        }
+                    }
                 }
             }
+        }
+
+        private int ExtractDigitCount(string pic)
+        {
+            // Extract total digit count from patterns like S9(13)V99, 9(3), etc.
+            var totalDigits = 0;
+            
+            // Remove S prefix if present
+            var cleanPic = pic.StartsWith("S") ? pic.Substring(1) : pic;
+            
+            // Find all digit patterns
+            var matches = Regex.Matches(cleanPic, @"9+\(?(\d+)?\)?");
+            foreach (Match match in matches)
+            {
+                if (match.Groups[1].Success)
+                {
+                    totalDigits += int.Parse(match.Groups[1].Value);
+                }
+                else
+                {
+                    totalDigits += match.Value.Count(c => c == '9');
+                }
+            }
+            
+            return totalDigits;
         }
 
         private int ExtractLength(string pic)
@@ -192,35 +325,6 @@ namespace LegacyModernization.Core.Utilities
             }
             
             return 1; // Default
-        }
-
-        /// <summary>
-        /// Create a hardcoded structure based on the key fields we know from the COBOL program
-        /// This is used as a fallback when the COBOL file isn't available
-        /// </summary>
-        private MB2000RecordStructure CreateHardcodedStructure()
-        {
-            var structure = new MB2000RecordStructure();
-            
-            // Based on the COBOL mblps.dd.cbl structure, create key field definitions
-            structure.Fields.AddRange(new[]
-            {
-                new CobolFieldDefinition { Name = "MB-CLIENT3", Level = 15, DataType = CobolDataType.Numeric, Length = 3, Position = 1 },
-                new CobolFieldDefinition { Name = "MB-ACCOUNT", Level = 10, DataType = CobolDataType.Packed, Length = 8, Position = 11 },
-                new CobolFieldDefinition { Name = "MB-FORMATTED-ACCOUNT", Level = 15, DataType = CobolDataType.Numeric, Length = 10, Position = 19 },
-                new CobolFieldDefinition { Name = "MB-SSN", Level = 10, DataType = CobolDataType.Packed, Length = 5, Position = 29 },
-                new CobolFieldDefinition { Name = "MB-BILL-NAME", Level = 10, DataType = CobolDataType.Alphanumeric, Length = 60, Position = 35 },
-                new CobolFieldDefinition { Name = "MB-BILL-LINE-2", Level = 10, DataType = CobolDataType.Alphanumeric, Length = 60, Position = 95 },
-                new CobolFieldDefinition { Name = "MB-BILL-LINE-3", Level = 10, DataType = CobolDataType.Alphanumeric, Length = 60, Position = 155 },
-                new CobolFieldDefinition { Name = "MB-BILL-CITY", Level = 15, DataType = CobolDataType.Alphanumeric, Length = 51, Position = 275 },
-                new CobolFieldDefinition { Name = "MB-BILL-STATE", Level = 15, DataType = CobolDataType.Alphanumeric, Length = 2, Position = 326 },
-                new CobolFieldDefinition { Name = "MB-ZIP-5", Level = 15, DataType = CobolDataType.Alphanumeric, Length = 5, Position = 328 },
-                new CobolFieldDefinition { Name = "MB-ZIP-4", Level = 15, DataType = CobolDataType.Alphanumeric, Length = 4, Position = 333 },
-                new CobolFieldDefinition { Name = "MB-TELE-NO", Level = 15, DataType = CobolDataType.Alphanumeric, Length = 12, Position = 367 }
-            });
-
-            structure.TotalLength = 2000; // Standard MB2000 record length
-            return structure;
         }
     }
 }

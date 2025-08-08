@@ -138,9 +138,27 @@ namespace LegacyModernization.Pipeline
                     throw;
                 }
 
-                progressReporter.ReportStep("E-bill Split Processing", "Not yet implemented - placeholder");
-                progressReporter.ReportStep("E-bill Split Processing", "Not yet implemented - placeholder");
-                progressReporter.ReportStep("Pipeline Integration", "Not yet implemented - placeholder");
+                // Task 2.5: E-bill Split Processing Implementation - cnpsplit4.out + mv operations equivalent
+                try
+                {
+                    var ebillSplitComponent = new EbillSplitComponent(logger, progressReporter, config);
+                    var splitResult = await ebillSplitComponent.ExecuteAsync(arguments);
+                    
+                    if (!splitResult)
+                    {
+                        logger.Error("E-bill split processing failed");
+                        throw new InvalidOperationException("E-bill split processing failed");
+                    }
+                    
+                    logger.Information("E-bill split processing completed successfully");
+                }
+                catch (Exception ex)
+                {
+                    logger.Error(ex, "E-bill split processing failed");
+                    throw;
+                }
+
+                progressReporter.ReportStep("Pipeline Integration", "All core pipeline components completed successfully");
 
                 logger.Information("Tasks 2.1-2.2 - Parameter Validation, Environment Setup, and Supplemental File Processing completed successfully");
                 var totalDuration = DateTime.Now - startTime;

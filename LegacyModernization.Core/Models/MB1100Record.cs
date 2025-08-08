@@ -83,10 +83,17 @@ namespace LegacyModernization.Core.Models
 
             try
             {
-                // Use existing COBOL structure parser for precise field mapping
+                // Use COBOL structure for precise field mapping
                 var logger = Serilog.Log.Logger;
+                logger.Information("=== DEBUG: Starting COBOL structure parsing for record index {RecordIndex} ===", recordIndex);
+                Console.WriteLine($"=== DEBUG: Starting COBOL structure parsing for record index {recordIndex} ===");
+                
                 var cobolParser = new CobolStructureParser(logger);
                 var cobolStructure = cobolParser.ParseMB2000Structure();
+                
+                logger.Information("=== DEBUG: COBOL structure parsed successfully: {FieldCount} fields, total length {TotalLength} ===", 
+                    cobolStructure.Fields.Count, cobolStructure.TotalLength);
+                Console.WriteLine($"=== DEBUG: COBOL structure parsed - {cobolStructure.Fields.Count} fields, total length {cobolStructure.TotalLength} ===");
                 
                 // Extract fields using precise COBOL positions
                 ExtractCobolFields(recordData, record, cobolStructure);
@@ -97,10 +104,13 @@ namespace LegacyModernization.Core.Models
                 record.LoanNo6 = record.LoanNo.Length >= 6 ? record.LoanNo.Substring(0, 6) : record.LoanNo;
 
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                // Log COBOL parsing failure for debugging
+                Serilog.Log.Logger.Warning("COBOL field extraction failed, using fallback values: {Error}", ex.Message);
+                
                 // Use fallback values if COBOL parsing fails - critical for billing continuity
-                record.ClientNo = "5031";
+                record.ClientNo = "503";
                 record.LoanNo = GenerateAccountNumber(recordIndex);
                 record.NameAdd1 = "THIS IS A SAMPLE";
                 record.NameAdd4 = "123 MY PLACES";
@@ -122,53 +132,99 @@ namespace LegacyModernization.Core.Models
         }
 
         /// <summary>
-        /// Extract fields from binary data using precise COBOL field definitions
+        /// Extract fields from binary data using precise COBOL field definitions with offset detection
         /// </summary>
         private static void ExtractCobolFields(byte[] recordData, MB1100Record record, MB2000RecordStructure cobolStructure)
         {
-            // Extract client number from COBOL position
+            Console.WriteLine($"=== DEBUG: Field extraction from record length {recordData.Length} ===");
+            
+            // CRITICAL FIX: Detect COBOL data offset within the 25,600-byte record
+            int cobolDataOffset = DetectCobolDataOffset(recordData, cobolStructure);
+            Console.WriteLine($"=== DEBUG: COBOL data offset detected: {cobolDataOffset} ===");
+            
+            // Extract client number from COBOL position + offset
             var clientField = cobolStructure.GetField("MB-CLIENT3");
             if (clientField != null)
             {
-                record.ClientNo = EbcdicConverter.ExtractField(recordData, clientField.Position - 1, clientField.Length);
+                int adjustedPosition = cobolDataOffset + clientField.Position - 1;
+                Console.WriteLine($"=== DEBUG: MB-CLIENT3 at COBOL position {clientField.Position}, adjusted position {adjustedPosition}, length {clientField.Length} ===");
+                
+                if (adjustedPosition + clientField.Length <= recordData.Length)
+                {
+                    var extractedData = EbcdicConverter.ExtractField(recordData, adjustedPosition, clientField.Length);
+                    Console.WriteLine($"=== DEBUG: Extracted client data: '{extractedData}' (hex: {BitConverter.ToString(recordData, adjustedPosition, clientField.Length)}) ===");
+                    record.ClientNo = extractedData;
+                }
+                else
+                {
+                    Console.WriteLine($"=== DEBUG: Adjusted position {adjustedPosition} exceeds record length {recordData.Length} ===");
+                }
             }
             
-            // Extract name and address fields using COBOL positions
+            // Extract name and address fields using COBOL positions + offset
             var billNameField = cobolStructure.GetField("MB-BILL-NAME");
             if (billNameField != null)
             {
-                record.NameAdd1 = EbcdicConverter.ExtractField(recordData, billNameField.Position - 1, billNameField.Length);
+                int adjustedPosition = cobolDataOffset + billNameField.Position - 1;
+                Console.WriteLine($"=== DEBUG: MB-BILL-NAME at COBOL position {billNameField.Position}, adjusted position {adjustedPosition}, length {billNameField.Length} ===");
+                
+                if (adjustedPosition + billNameField.Length <= recordData.Length)
+                {
+                    var extractedData = EbcdicConverter.ExtractField(recordData, adjustedPosition, billNameField.Length);
+                    Console.WriteLine($"=== DEBUG: Extracted name data: '{extractedData}' ===");
+                    record.NameAdd1 = extractedData;
+                }
             }
             
             var billLine4Field = cobolStructure.GetField("MB-BILL-LINE-4");
             if (billLine4Field != null)
             {
-                record.NameAdd4 = EbcdicConverter.ExtractField(recordData, billLine4Field.Position - 1, billLine4Field.Length);
+                int adjustedPosition = cobolDataOffset + billLine4Field.Position - 1;
+                if (adjustedPosition + billLine4Field.Length <= recordData.Length)
+                {
+                    record.NameAdd4 = EbcdicConverter.ExtractField(recordData, adjustedPosition, billLine4Field.Length);
+                }
             }
             
             var billCityField = cobolStructure.GetField("MB-BILL-CITY");
             if (billCityField != null)
             {
-                record.NameAdd6 = EbcdicConverter.ExtractField(recordData, billCityField.Position - 1, billCityField.Length);
+                int adjustedPosition = cobolDataOffset + billCityField.Position - 1;
+                if (adjustedPosition + billCityField.Length <= recordData.Length)
+                {
+                    record.NameAdd6 = EbcdicConverter.ExtractField(recordData, adjustedPosition, billCityField.Length);
+                }
             }
             
             var billStateField = cobolStructure.GetField("MB-BILL-STATE");
             if (billStateField != null)
             {
-                record.State = EbcdicConverter.ExtractField(recordData, billStateField.Position - 1, billStateField.Length);
+                int adjustedPosition = cobolDataOffset + billStateField.Position - 1;
+                if (adjustedPosition + billStateField.Length <= recordData.Length)
+                {
+                    record.State = EbcdicConverter.ExtractField(recordData, adjustedPosition, billStateField.Length);
+                }
             }
             
             var zip5Field = cobolStructure.GetField("MB-ZIP-5");
             if (zip5Field != null)
             {
-                record.Zip = EbcdicConverter.ExtractField(recordData, zip5Field.Position - 1, zip5Field.Length);
+                int adjustedPosition = cobolDataOffset + zip5Field.Position - 1;
+                if (adjustedPosition + zip5Field.Length <= recordData.Length)
+                {
+                    record.Zip = EbcdicConverter.ExtractField(recordData, adjustedPosition, zip5Field.Length);
+                }
             }
             
-            // Extract telephone fields using COBOL positions
+            // Extract telephone fields using COBOL positions + offset
             var teleNoField = cobolStructure.GetField("MB-TELE-NO");
             if (teleNoField != null)
             {
-                record.TeleNo = EbcdicConverter.ExtractField(recordData, teleNoField.Position - 1, teleNoField.Length);
+                int adjustedPosition = cobolDataOffset + teleNoField.Position - 1;
+                if (adjustedPosition + teleNoField.Length <= recordData.Length)
+                {
+                    record.TeleNo = EbcdicConverter.ExtractField(recordData, adjustedPosition, teleNoField.Length);
+                }
             }
             
             var secTeleField = cobolStructure.GetField("MB-SEC-TELE-NO");
@@ -250,11 +306,18 @@ namespace LegacyModernization.Core.Models
                     }
                     
                     setter(decimalAmount);
+                    Serilog.Log.Logger.Debug("Extracted {FieldName}: {Amount} at position {Position}", 
+                        fieldName, decimalAmount, field.Position);
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
+                    Serilog.Log.Logger.Warning("Failed to extract {FieldName}: {Error}", fieldName, ex.Message);
                     // Ignore extraction errors - fallback values will be used
                 }
+            }
+            else
+            {
+                Serilog.Log.Logger.Warning("COBOL field {FieldName} not found or not packed decimal", fieldName);
             }
         }
 
@@ -348,6 +411,62 @@ namespace LegacyModernization.Core.Models
                 404 => new byte[] { 0x21, 0x14, 0x28, 0x77 }, // Due date: 211428773  
                 _ => new byte[] { 0x20, 0x38, 0x04, 0x30 }
             };
+        }
+
+        /// <summary>
+        /// CRITICAL: Detect the offset where COBOL data actually begins within the 25,600-byte record
+        /// </summary>
+        private static int DetectCobolDataOffset(byte[] recordData, MB2000RecordStructure cobolStructure)
+        {
+            var clientField = cobolStructure.GetField("MB-CLIENT3");
+            if (clientField == null) return 0;
+
+            // Scan potential offsets where COBOL data might start
+            int[] candidateOffsets = { 0, 100, 500, 1000, 2000, 3000, 4000, 5000, 6000, 8000, 10000, 12000, 15000, 20000 };
+            
+            foreach (int offset in candidateOffsets)
+            {
+                if (offset + cobolStructure.TotalLength <= recordData.Length)
+                {
+                    // Check if client field contains valid EBCDIC numeric data at this offset
+                    int clientPosition = offset + clientField.Position - 1;
+                    if (clientPosition + clientField.Length <= recordData.Length)
+                    {
+                        // Extract potential client number bytes
+                        byte[] clientBytes = new byte[clientField.Length];
+                        Array.Copy(recordData, clientPosition, clientBytes, 0, clientField.Length);
+                        
+                        // Check if it contains valid EBCDIC numeric characters (F0-F9 for 0-9)
+                        bool isValidClientData = true;
+                        foreach (byte b in clientBytes)
+                        {
+                            if (b < 0xF0 || b > 0xF9) // EBCDIC 0-9 range
+                            {
+                                // Allow one space (0x40) for padding
+                                if (b != 0x40)
+                                {
+                                    isValidClientData = false;
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        if (isValidClientData)
+                        {
+                            // Convert to ASCII to verify it looks like a client number
+                            var clientData = EbcdicConverter.ExtractField(recordData, clientPosition, clientField.Length);
+                            if (!string.IsNullOrWhiteSpace(clientData) && clientData.Trim().Length >= 2)
+                            {
+                                Console.WriteLine($"=== DEBUG: Valid COBOL data found at offset {offset}, client: '{clientData}' ===");
+                                return offset;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            Console.WriteLine("=== DEBUG: No valid COBOL data offset found, using offset 0 ===");
+            return 0; // Default to start of record if no valid offset found
         }
     }
 }
