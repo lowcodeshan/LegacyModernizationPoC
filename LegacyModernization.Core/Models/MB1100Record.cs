@@ -102,6 +102,8 @@ namespace LegacyModernization.Core.Models
                 record.LoanNo = GenerateAccountNumber(recordIndex);
                 record.LoanNo7 = record.LoanNo.Length >= 7 ? record.LoanNo.Substring(0, 7) : record.LoanNo;
                 record.LoanNo6 = record.LoanNo.Length >= 6 ? record.LoanNo.Substring(0, 6) : record.LoanNo;
+                
+                Console.WriteLine($"=== DEBUG: After account assignment - LoanNo: '{record.LoanNo}', LoanNo7: '{record.LoanNo7}', LoanNo6: '{record.LoanNo6}' ===");
 
             }
             catch (Exception ex)

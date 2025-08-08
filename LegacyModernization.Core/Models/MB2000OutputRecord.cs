@@ -126,15 +126,30 @@ namespace LegacyModernization.Core.Models
                 output.TranCount = input.TranCount;
 
                 // Account number mapping based on loan digits
+                Console.WriteLine($"DEBUG Account Assignment - LoanNo: '{input.LoanNo}', LoanNo6: '{input.LoanNo6}', LoanNo7: '{input.LoanNo7}'");
                 var loanDigits = DetermineLoanDigits(input.LoanNo);
+                Console.WriteLine($"DEBUG Account Assignment - Determined loan digits: {loanDigits}");
                 if (loanDigits == 7)
+                {
                     output.Account = input.LoanNo7;
+                    Console.WriteLine($"DEBUG Account Assignment - Using LoanNo7: '{input.LoanNo7}'");
+                }
                 else if (loanDigits == 13)
+                {
                     output.Account = input.LoanNo;
+                    Console.WriteLine($"DEBUG Account Assignment - Using LoanNo: '{input.LoanNo}'");
+                }
                 else if (loanDigits == 6)
+                {
                     output.Account = input.LoanNo6;
+                    Console.WriteLine($"DEBUG Account Assignment - Using LoanNo6: '{input.LoanNo6}'");
+                }
                 else
+                {
                     output.Account = input.LoanNo;
+                    Console.WriteLine($"DEBUG Account Assignment - Using default LoanNo: '{input.LoanNo}'");
+                }
+                Console.WriteLine($"DEBUG Account Assignment - Final Account value: '{output.Account}'");
 
                 // Security numbers (only if numeric)
                 if (IsNumeric(input.SSNo))

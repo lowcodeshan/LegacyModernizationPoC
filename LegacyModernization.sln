@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LegacyModernization.Core", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LegacyModernization.Tests", "LegacyModernization.Tests\LegacyModernization.Tests.csproj", "{F4F1E08D-6574-4F16-AE3A-651DB1FBB688}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LegacyModernization.Validation", "LegacyModernization.Validation\LegacyModernization.Validation.csproj", "{0BE7401F-D144-45DE-B246-F4DC7E5CA2D8}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -55,6 +57,18 @@ Global
 		{F4F1E08D-6574-4F16-AE3A-651DB1FBB688}.Release|x64.Build.0 = Release|Any CPU
 		{F4F1E08D-6574-4F16-AE3A-651DB1FBB688}.Release|x86.ActiveCfg = Release|Any CPU
 		{F4F1E08D-6574-4F16-AE3A-651DB1FBB688}.Release|x86.Build.0 = Release|Any CPU
+		{0BE7401F-D144-45DE-B246-F4DC7E5CA2D8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0BE7401F-D144-45DE-B246-F4DC7E5CA2D8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0BE7401F-D144-45DE-B246-F4DC7E5CA2D8}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{0BE7401F-D144-45DE-B246-F4DC7E5CA2D8}.Debug|x64.Build.0 = Debug|Any CPU
+		{0BE7401F-D144-45DE-B246-F4DC7E5CA2D8}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{0BE7401F-D144-45DE-B246-F4DC7E5CA2D8}.Debug|x86.Build.0 = Debug|Any CPU
+		{0BE7401F-D144-45DE-B246-F4DC7E5CA2D8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0BE7401F-D144-45DE-B246-F4DC7E5CA2D8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0BE7401F-D144-45DE-B246-F4DC7E5CA2D8}.Release|x64.ActiveCfg = Release|Any CPU
+		{0BE7401F-D144-45DE-B246-F4DC7E5CA2D8}.Release|x64.Build.0 = Release|Any CPU
+		{0BE7401F-D144-45DE-B246-F4DC7E5CA2D8}.Release|x86.ActiveCfg = Release|Any CPU
+		{0BE7401F-D144-45DE-B246-F4DC7E5CA2D8}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
