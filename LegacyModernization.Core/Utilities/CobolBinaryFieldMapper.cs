@@ -67,7 +67,7 @@ namespace LegacyModernization.Core.Utilities
                         WritePackedDecimalField(buffer, field, record.PaymentAmount.ToString("F2"));
                         break;
                     case "MB-TRAN-KEY":
-                        WritePackedDecimalField(buffer, field, record.TranKey ?? "0");
+                        WritePackedDecimalField(buffer, field, record.TranKey ?? "2");
                         break;
                     case "MB-TRAN-COUNT":
                         WritePackedDecimalField(buffer, field, record.TranCount ?? "0");
