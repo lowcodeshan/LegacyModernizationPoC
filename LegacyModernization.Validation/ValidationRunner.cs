@@ -31,18 +31,44 @@ namespace LegacyModernization.Validation
                 // Validate command line arguments
                 if (args.Length < 1)
                 {
-                    logger.Error("Usage: ValidationRunner <job_number> [expected_output_path]");
+                    logger.Error("Usage: ValidationRunner <job_number> [expected_output_path] [--format text|html]");
+                    logger.Information("Examples:");
+                    logger.Information("  ValidationRunner 69172");
+                    logger.Information("  ValidationRunner 69172 --format html");
+                    logger.Information("  ValidationRunner 69172 C:\\Expected\\Output --format html");
                     return 1;
                 }
 
                 var jobNumber = args[0];
-                var expectedOutputPath = args.Length > 1 
-                    ? args[1] 
-                    : @"c:\Users\Shan\Documents\Legacy Mordernization\MBCNTR2053_Expected_Output";
+                var expectedOutputPath = @"c:\Users\Shan\Documents\Legacy Mordernization\MBCNTR2053_Expected_Output";
+                var outputFormat = "text"; // Default format
+
+                // Parse additional arguments
+                for (int i = 1; i < args.Length; i++)
+                {
+                    if (args[i] == "--format" && i + 1 < args.Length)
+                    {
+                        outputFormat = args[i + 1].ToLowerInvariant();
+                        i++; // Skip the format value
+                    }
+                    else if (!args[i].StartsWith("--"))
+                    {
+                        // Assume it's the expected output path
+                        expectedOutputPath = args[i];
+                    }
+                }
+
+                // Validate format
+                if (outputFormat != "text" && outputFormat != "html")
+                {
+                    logger.Error("Invalid format: {Format}. Valid formats are: text, html", outputFormat);
+                    return 1;
+                }
 
                 logger.Information("Validation Parameters:");
                 logger.Information("  Job Number: {JobNumber}", jobNumber);
                 logger.Information("  Expected Output Path: {ExpectedPath}", expectedOutputPath);
+                logger.Information("  Output Format: {Format}", outputFormat);
 
                 // Validate paths exist
                 if (!Directory.Exists(expectedOutputPath))
@@ -80,14 +106,34 @@ namespace LegacyModernization.Validation
                 var validationResult = await validator.ValidateOutputAsync(jobNumber, expectedOutputPath);
 
                 // Generate and display report
-                var report = validator.GenerateValidationReport(validationResult);
-                Console.WriteLine(report);
+                string report;
+                string reportPath;
+                
+                if (outputFormat == "html")
+                {
+                    // Generate HTML report
+                    var htmlReport = validator.GenerateHtmlValidationReport(validationResult);
+                    reportPath = Path.Combine(configuration.LogPath, $"validation_report_{jobNumber}_{DateTime.Now:yyyyMMdd_HHmmss}.html");
+                    Directory.CreateDirectory(Path.GetDirectoryName(reportPath)!);
+                    await File.WriteAllTextAsync(reportPath, htmlReport);
+                    logger.Information("HTML validation report written to: {ReportPath}", reportPath);
+                    
+                    // Also generate text for console display
+                    report = validator.GenerateValidationReport(validationResult);
+                    Console.WriteLine(report);
+                }
+                else
+                {
+                    // Generate text report
+                    report = validator.GenerateValidationReport(validationResult);
+                    Console.WriteLine(report);
 
-                // Write report to file
-                var reportPath = Path.Combine(configuration.LogPath, $"validation_report_{jobNumber}_{DateTime.Now:yyyyMMdd_HHmmss}.txt");
-                Directory.CreateDirectory(Path.GetDirectoryName(reportPath));
-                await File.WriteAllTextAsync(reportPath, report);
-                logger.Information("Validation report written to: {ReportPath}", reportPath);
+                    // Write report to file
+                    reportPath = Path.Combine(configuration.LogPath, $"validation_report_{jobNumber}_{DateTime.Now:yyyyMMdd_HHmmss}.txt");
+                    Directory.CreateDirectory(Path.GetDirectoryName(reportPath)!);
+                    await File.WriteAllTextAsync(reportPath, report);
+                    logger.Information("Text validation report written to: {ReportPath}", reportPath);
+                }
 
                 // Return appropriate exit code
                 if (validationResult.Success)
