@@ -70,8 +70,8 @@ namespace LegacyModernization.Core.Pipeline
                     return false;
                 }
 
-                _progressReporter.ReportStepCompleted("Supplemental File Processing",
-                    $"Job {arguments.JobNumber} supplemental file processed successfully");
+                _progressReporter.ReportStep("Supplemental File Processing",
+                    $"Job {arguments.JobNumber} supplemental file processed successfully", true);
 
                 return true;
             }

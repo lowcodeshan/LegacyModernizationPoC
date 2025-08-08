@@ -63,8 +63,8 @@ namespace LegacyModernization.Core.Pipeline
                     return false;
                 }
 
-                _progressReporter.ReportStepCompleted("Parameter Validation & Environment Setup", 
-                    $"Job {arguments.JobNumber} validated and environment configured");
+                _progressReporter.ReportStep("Parameter Validation & Environment Setup", 
+                    $"Job {arguments.JobNumber} validated and environment configured", true);
 
                 return true;
             }

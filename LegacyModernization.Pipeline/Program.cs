@@ -158,7 +158,7 @@ namespace LegacyModernization.Pipeline
                     throw;
                 }
 
-                progressReporter.ReportStep("Pipeline Integration", "All core pipeline components completed successfully");
+                progressReporter.ReportStep("Pipeline Integration", "All core pipeline components completed successfully", true);
 
                 logger.Information("Tasks 2.1-2.2 - Parameter Validation, Environment Setup, and Supplemental File Processing completed successfully");
                 var totalDuration = DateTime.Now - startTime;

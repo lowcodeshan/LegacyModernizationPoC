@@ -70,8 +70,8 @@ namespace LegacyModernization.Core.Pipeline
                     return false;
                 }
 
-                _progressReporter.ReportStepCompleted("Container Step 1", 
-                    $"Container processing completed for job {containerParams.JobNumber}");
+                _progressReporter.ReportStep("Container Step 1", 
+                    $"Container processing completed for job {containerParams.JobNumber}", true);
 
                 return true;
             }
