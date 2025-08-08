@@ -75,3 +75,4 @@ logs/
 # IDE specific files
 *.swp
 *~
+TestOutput/

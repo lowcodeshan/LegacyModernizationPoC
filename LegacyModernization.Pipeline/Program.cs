@@ -1,6 +1,7 @@
 ﻿using LegacyModernization.Core.Configuration;
 using LegacyModernization.Core.Logging;
 using LegacyModernization.Core.Pipeline;
+using LegacyModernization.Core.Models;
 using Serilog;
 using System;
 using System.Diagnostics;
@@ -95,10 +96,49 @@ namespace LegacyModernization.Pipeline
                     return 0;
                 }
 
-                // TODO: Execute remaining pipeline steps (Tasks 2.3-2.5)
-                // This will be implemented in subsequent tasks
-                progressReporter.ReportStep("Container Step 1", "Not yet implemented - placeholder");
-                progressReporter.ReportStep("MB2000 Conversion", "Not yet implemented - placeholder");
+                // TODO: Execute remaining pipeline steps (Tasks 2.4-2.5)
+                
+                // Task 2.3: Container Step 1 Implementation - ncpcntr5v2.script equivalent
+                try
+                {
+                    var containerStep1Component = new ContainerStep1Component(logger, progressReporter, config);
+                    var containerResult = await containerStep1Component.ExecuteAsync(arguments);
+                    
+                    if (!containerResult)
+                    {
+                        logger.Error("Container Step 1 processing failed");
+                        throw new InvalidOperationException("Container processing failed");
+                    }
+                    
+                    logger.Information("Container Step 1 completed successfully");
+                }
+                catch (Exception ex)
+                {
+                    logger.Error(ex, "Container Step 1 processing failed");
+                    throw;
+                }
+                
+                // Task 2.4: MB2000 Conversion Implementation - setmb2000.script equivalent
+                try
+                {
+                    var mb2000ConversionComponent = new MB2000ConversionComponent(logger, progressReporter, config);
+                    var conversionResult = await mb2000ConversionComponent.ExecuteAsync(arguments);
+                    
+                    if (!conversionResult)
+                    {
+                        logger.Error("MB2000 conversion processing failed");
+                        throw new InvalidOperationException("MB2000 conversion failed");
+                    }
+                    
+                    logger.Information("MB2000 conversion completed successfully");
+                }
+                catch (Exception ex)
+                {
+                    logger.Error(ex, "MB2000 conversion processing failed");
+                    throw;
+                }
+
+                progressReporter.ReportStep("E-bill Split Processing", "Not yet implemented - placeholder");
                 progressReporter.ReportStep("E-bill Split Processing", "Not yet implemented - placeholder");
                 progressReporter.ReportStep("Pipeline Integration", "Not yet implemented - placeholder");
 
