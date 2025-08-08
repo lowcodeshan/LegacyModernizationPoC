@@ -15,8 +15,9 @@ namespace LegacyModernization.Core.Logging
         /// </summary>
         /// <param name="logDirectory">Directory for log files</param>
         /// <param name="jobNumber">Job number for log file naming</param>
+        /// <param name="logLevel">Minimum log level for console output</param>
         /// <returns>Configured logger instance</returns>
-        public static ILogger CreateLogger(string logDirectory, string jobNumber = "default")
+        public static ILogger CreateLogger(string logDirectory, string jobNumber = "default", string logLevel = "Information")
         {
             // Ensure log directory exists
             Directory.CreateDirectory(logDirectory);
@@ -25,8 +26,11 @@ namespace LegacyModernization.Core.Logging
             var logFileName = $"pipeline_{jobNumber}_{timestamp}.log";
             var logFilePath = Path.Combine(logDirectory, logFileName);
 
+            // Parse log level string to LogEventLevel enum
+            var minimumLevel = ParseLogLevel(logLevel);
+
             return new Serilog.LoggerConfiguration()
-                .MinimumLevel.Debug()
+                .MinimumLevel.Is(minimumLevel)
                 .MinimumLevel.Override("Microsoft", LogEventLevel.Information)
                 .MinimumLevel.Override("System", LogEventLevel.Information)
                 .Enrich.FromLogContext()
@@ -49,11 +53,30 @@ namespace LegacyModernization.Core.Logging
         /// <param name="logDirectory">Directory for log files</param>
         /// <param name="jobNumber">Job number for context</param>
         /// <param name="stepName">Pipeline step name</param>
+        /// <param name="logLevel">Minimum log level for console output</param>
         /// <returns>Configured logger with step context</returns>
-        public static ILogger CreateStepLogger(string logDirectory, string jobNumber, string stepName)
+        public static ILogger CreateStepLogger(string logDirectory, string jobNumber, string stepName, string logLevel = "Information")
         {
-            var baseLogger = CreateLogger(logDirectory, jobNumber);
+            var baseLogger = CreateLogger(logDirectory, jobNumber, logLevel);
             return baseLogger.ForContext("Step", stepName);
+        }
+
+        /// <summary>
+        /// Parse log level string to LogEventLevel enum
+        /// </summary>
+        /// <param name="logLevel">Log level string</param>
+        /// <returns>LogEventLevel enum value</returns>
+        private static LogEventLevel ParseLogLevel(string logLevel)
+        {
+            return logLevel?.ToUpperInvariant() switch
+            {
+                "DEBUG" => LogEventLevel.Debug,
+                "INFORMATION" => LogEventLevel.Information,
+                "WARNING" => LogEventLevel.Warning,
+                "ERROR" => LogEventLevel.Error,
+                "FATAL" => LogEventLevel.Fatal,
+                _ => LogEventLevel.Information // Default fallback
+            };
         }
     }
 

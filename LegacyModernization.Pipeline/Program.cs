@@ -24,27 +24,24 @@ namespace LegacyModernization.Pipeline
             var solutionRoot = GetSolutionRoot(projectBase);
             var config = PipelineConfiguration.CreateDefault(solutionRoot);
 
-            // Create logger
-            var logger = Core.Logging.LoggerConfiguration.CreateLogger(config.LogPath, "pipeline");
+            // Parse arguments first to get log level
+            var arguments = ParseArguments(args);
+            if (arguments == null)
+            {
+                DisplayUsage();
+                return 1;
+            }
+
+            // Create logger with parsed log level
+            var logger = Core.Logging.LoggerConfiguration.CreateLogger(config.LogPath, "pipeline", arguments.LogLevel);
             
-            // Create progress reporter
-            var progressReporter = new ProgressReporter(logger, false);
-            
+            // Create progress reporter with proper verbose mode
+            var progressReporter = new ProgressReporter(logger, arguments.Verbose);
+
             try
             {
                 // Display startup banner with timestamp (equivalent to legacy script banner and date)
                 progressReporter.DisplayStartupBanner();
-                
-                // Parse arguments
-                var arguments = ParseArguments(args);
-                if (arguments == null)
-                {
-                    DisplayUsage();
-                    return 1;
-                }
-
-                // Update progress reporter verbosity based on arguments
-                progressReporter = new ProgressReporter(logger, arguments.Verbose);
 
                 // Enhanced argument validation using ArgumentValidator
                 var validationResult = ArgumentValidator.ValidateArguments(arguments);
@@ -198,7 +195,6 @@ namespace LegacyModernization.Pipeline
                     case "-v":
                     case "--verbose":
                         arguments.Verbose = true;
-                        arguments.LogLevel = "Debug";
                         break;
                     
                     case "-d":
