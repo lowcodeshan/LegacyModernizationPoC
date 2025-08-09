@@ -4,8 +4,9 @@ using System;
 namespace LegacyModernization.Core.Logging
 {
     /// <summary>
-    /// Progress reporting mechanism for user feedback during pipeline execution
+    /// Progress reporting mechanism for user feedback during parallel pipeline execution
     /// Implements logging and banner functionality equivalent to mbcntr2503.script
+    /// Architecture: Container Step 1 || MB2000 Conversion (Parallel Processing)
     /// </summary>
     public class ProgressReporter
     {
@@ -32,13 +33,14 @@ namespace LegacyModernization.Core.Logging
 ==============================================================================
                     Legacy Modernization Pipeline
                          Monthly Bill Process 2503
+                    Parallel Processing Architecture
                                " + version + @"
 ==============================================================================
                         Started: " + timestamp.ToString("yyyy-MM-dd HH:mm:ss") + @"
 ==============================================================================";
             
             Console.WriteLine(banner);
-            _logger.Information("Legacy Modernization Pipeline started at {Timestamp}", timestamp);
+            _logger.Information("Legacy Modernization Pipeline (Parallel Processing) started at {Timestamp}", timestamp);
             
             if (_verbose)
             {
@@ -64,7 +66,7 @@ namespace LegacyModernization.Core.Logging
         }
 
         /// <summary>
-        /// Report progress for a specific step
+        /// Report progress for a specific step (may execute in parallel with other steps)
         /// </summary>
         /// <param name="stepName">Name of the current step</param>
         /// <param name="status">Status message</param>
@@ -148,7 +150,7 @@ namespace LegacyModernization.Core.Logging
         }
 
         /// <summary>
-        /// Report final pipeline completion
+        /// Report final pipeline completion with parallel processing details
         /// </summary>
         /// <param name="success">Whether the pipeline completed successfully</param>
         /// <param name="duration">Total execution duration</param>
@@ -160,24 +162,28 @@ namespace LegacyModernization.Core.Logging
             {
                 Console.WriteLine();
                 Console.WriteLine("==============================================================================");
-                Console.WriteLine("                    PIPELINE COMPLETED SUCCESSFULLY");
+                Console.WriteLine("                PARALLEL PIPELINE COMPLETED SUCCESSFULLY");
                 Console.WriteLine($"                        Duration: {duration:hh\\:mm\\:ss}");
                 Console.WriteLine($"                        Ended: {timestamp:yyyy-MM-dd HH:mm:ss}");
+                Console.WriteLine();
+                Console.WriteLine("Parallel Processing Architecture:");
+                Console.WriteLine("  ✓ Container Step 1 & MB2000 Conversion (executed in parallel)");
+                Console.WriteLine("  ✓ E-bill Split (executed sequentially after parallel phase)");
                 Console.WriteLine("==============================================================================");
                 
-                _logger.Information("Pipeline completed successfully at {Timestamp} after {Duration}", 
+                _logger.Information("Parallel pipeline completed successfully at {Timestamp} after {Duration}", 
                     timestamp, duration);
             }
             else
             {
                 Console.WriteLine();
                 Console.WriteLine("==============================================================================");
-                Console.WriteLine("                       PIPELINE FAILED");
+                Console.WriteLine("                     PARALLEL PIPELINE FAILED");
                 Console.WriteLine($"                        Duration: {duration:hh\\:mm\\:ss}");
                 Console.WriteLine($"                        Failed at: {timestamp:yyyy-MM-dd HH:mm:ss}");
                 Console.WriteLine("==============================================================================");
                 
-                _logger.Error("Pipeline failed at {Timestamp} after {Duration}", timestamp, duration);
+                _logger.Error("Parallel pipeline failed at {Timestamp} after {Duration}", timestamp, duration);
             }
         }
 
