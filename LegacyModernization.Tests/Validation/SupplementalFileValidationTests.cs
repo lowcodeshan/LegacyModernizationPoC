@@ -35,7 +35,7 @@ namespace LegacyModernization.Tests.Validation
             var solutionRoot = Path.GetDirectoryName(Path.GetDirectoryName(Path.GetDirectoryName(Path.GetDirectoryName(projectRoot))))!;
             
             _testOutputDirectory = Path.Combine(solutionRoot, "TestOutput", Guid.NewGuid().ToString("N")[..8]);
-            _expectedOutputDirectory = Path.GetFullPath(@"c:\Users\Shan\Documents\Legacy Mordernization\MBCNTR2053_Expected_Output");
+            _expectedOutputDirectory = Path.Combine(Path.GetDirectoryName(solutionRoot)!, "MBCNTR2053_Expected_Output");
             
             Directory.CreateDirectory(_testOutputDirectory);
 

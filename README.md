@@ -125,8 +125,12 @@ graph TD
 ```
 LegacyModernizationPoC/
 ├── LegacyModernization.sln                 # Solution file
+├── CONFIGURATION.md                        # Detailed configuration guide
 ├── LegacyModernization.Pipeline/           # Console application (orchestration)
 ├── LegacyModernization.Core/               # Class library (models & logic)
+│   ├── appsettings.json                    # 🔧 CENTRALIZED CONFIGURATION
+│   ├── Configuration/                      # Configuration management
+│   │   └── PipelineConfiguration.cs       # Configuration class with hierarchy support
 │   ├── Components/                         # Core processing components
 │   │   ├── TwoStageValidationComponent.cs  # Enhanced parallel validation
 │   │   └── ...
@@ -172,6 +176,25 @@ LegacyModernizationPoC/
 ```bash
 dotnet build
 ```
+
+### Configuration Setup
+
+⚠️ **Important:** Before running the pipeline, verify the configuration in `LegacyModernization.Core/appsettings.json`:
+
+```json
+{
+  "PipelineConfiguration": {
+    "ProjectBase": "C:\\Users\\Shan\\Documents\\Legacy Mordernization\\LegacyModernizationPoC",
+    "InputPath": "C:\\Users\\Shan\\Documents\\OSG\\MBCNTR2503\\Data File",
+    "OutputPath": "C:\\Users\\Shan\\Documents\\Legacy Mordernization\\LegacyModernizationPoC\\Output",
+    "LogPath": "C:\\Users\\Shan\\Documents\\Legacy Mordernization\\LegacyModernizationPoC\\Logs",
+    "TestDataPath": "C:\\Users\\Shan\\Documents\\OSG\\MBCNTR2053_Expected_Output",
+    "ExpectedOutputPath": "C:\\Users\\Shan\\Documents\\OSG\\MBCNTR2053_Expected_Output"
+  }
+}
+```
+
+This centralized configuration is automatically used by Pipeline, Validation, and Tests projects. See the [Configuration](#configuration) section below or `CONFIGURATION.md` for detailed setup options.
 
 ### Running Tests
 
@@ -580,6 +603,266 @@ ls Logs/pipeline_*.log
 - **File I/O:** Streaming approach for large files (future-proof)
 
 ## Configuration
+
+### Centralized Configuration System
+
+The pipeline uses a **centralized configuration system** through `appsettings.json` located in the `LegacyModernization.Core` project. This single configuration file is automatically used by all projects (Pipeline, Validation, Tests) for consistent behavior.
+
+#### Configuration Hierarchy
+
+The system follows this configuration priority:
+
+1. **Environment Variables** (Highest Priority)
+2. **appsettings.json** (Fallback)
+3. **Error with guidance** (No valid configuration)
+
+#### Current Configuration (appsettings.json)
+
+**Location:** `LegacyModernization.Core/appsettings.json`
+
+```json
+{
+  "PipelineConfiguration": {
+    "ProjectBase": "C:\\Users\\Shan\\Documents\\Legacy Mordernization\\LegacyModernizationPoC",
+    "InputPath": "C:\\Users\\Shan\\Documents\\OSG\\MBCNTR2503\\Data File",
+    "OutputPath": "C:\\Users\\Shan\\Documents\\Legacy Mordernization\\LegacyModernizationPoC\\Output",
+    "LogPath": "C:\\Users\\Shan\\Documents\\Legacy Mordernization\\LegacyModernizationPoC\\Logs",
+    "TestDataPath": "C:\\Users\\Shan\\Documents\\OSG\\MBCNTR2053_Expected_Output",
+    "ExpectedOutputPath": "C:\\Users\\Shan\\Documents\\OSG\\MBCNTR2053_Expected_Output"
+  }
+}
+```
+
+### Configuration Methods
+
+#### 1. **appsettings.json Configuration (Recommended)**
+
+Edit the single `appsettings.json` file in the Core project:
+
+```json
+{
+  "PipelineConfiguration": {
+    "ProjectBase": "C:\\Production\\LegacyModernization",
+    "InputPath": "\\\\FileServer\\MonthlyData\\Input",
+    "OutputPath": "\\\\FileServer\\MonthlyData\\Output",
+    "LogPath": "C:\\Logs\\Production",
+    "TestDataPath": "C:\\Production\\TestData",
+    "ExpectedOutputPath": "\\\\FileServer\\Validation\\Expected"
+  }
+}
+```
+
+**Benefits:**
+- ✅ **Single Source of Truth**: All projects use the same configuration
+- ✅ **Easy Maintenance**: Update paths in one place
+- ✅ **Version Control**: Configuration tracked with code
+- ✅ **Consistent Behavior**: Pipeline, Validation, and Tests use identical paths
+
+#### 2. **Environment Variables (Production)**
+
+Set environment variables to override appsettings.json:
+
+```bash
+# Windows
+set LEGACY_PROJECT_BASE=C:\Production\LegacyModernization
+set LEGACY_INPUT_PATH=\\FileServer\MonthlyData\Input
+set LEGACY_OUTPUT_PATH=\\FileServer\MonthlyData\Output
+set LEGACY_LOG_PATH=C:\Logs\Production
+set LEGACY_TESTDATA_PATH=C:\Production\TestData
+set LEGACY_EXPECTED_PATH=\\FileServer\Validation\Expected
+
+# Linux/Unix
+export LEGACY_PROJECT_BASE=/production/legacy-modernization
+export LEGACY_INPUT_PATH=/data/monthly-input
+export LEGACY_OUTPUT_PATH=/data/monthly-output
+export LEGACY_LOG_PATH=/var/logs/legacy-modernization
+export LEGACY_TESTDATA_PATH=/production/test-data
+export LEGACY_EXPECTED_PATH=/data/validation/expected
+```
+
+#### 3. **Command Line Arguments**
+
+Override input file path using command line arguments:
+
+```bash
+# Use custom source file (overrides InputPath for specific file)
+dotnet run --project LegacyModernization.Pipeline 69172 --source-file "C:\CustomPath\69172.dat"
+```
+
+### Configuration Scenarios
+
+#### Development Setup
+```json
+{
+  "PipelineConfiguration": {
+    "ProjectBase": "C:\\Dev\\LegacyModernizationPoC",
+    "InputPath": "C:\\Dev\\LegacyModernizationPoC\\TestData",
+    "OutputPath": "C:\\Dev\\LegacyModernizationPoC\\Output",
+    "LogPath": "C:\\Dev\\LegacyModernizationPoC\\Logs",
+    "TestDataPath": "C:\\Dev\\LegacyModernizationPoC\\TestData",
+    "ExpectedOutputPath": "C:\\Dev\\LegacyModernizationPoC\\ExpectedOutput"
+  }
+}
+```
+
+#### Production Setup
+```json
+{
+  "PipelineConfiguration": {
+    "ProjectBase": "C:\\Production\\LegacyModernization",
+    "InputPath": "\\\\FileServer\\MonthlyData\\Input",
+    "OutputPath": "\\\\FileServer\\MonthlyData\\Output",
+    "LogPath": "C:\\Logs\\Production",
+    "TestDataPath": "C:\\Production\\TestData",
+    "ExpectedOutputPath": "\\\\FileServer\\Validation\\Expected"
+  }
+}
+```
+
+#### Testing Setup
+```json
+{
+  "PipelineConfiguration": {
+    "ProjectBase": "C:\\Testing\\LegacyModernization",
+    "InputPath": "C:\\Testing\\Data\\Input",
+    "OutputPath": "C:\\Testing\\Data\\Output",
+    "LogPath": "C:\\Testing\\Logs",
+    "TestDataPath": "C:\\Testing\\TestData",
+    "ExpectedOutputPath": "C:\\Testing\\Expected"
+  }
+}
+```
+
+### Configuration Usage in Code
+
+```csharp
+// All projects use the same centralized configuration
+var config = PipelineConfiguration.CreateWithFallback();
+
+// Pipeline, Validation, and Tests automatically find and use:
+// LegacyModernization.Core/appsettings.json
+```
+
+### Configuration Search Priority
+
+The system searches for `appsettings.json` in this order:
+1. **LegacyModernization.Core project directory** (Centralized - Highest Priority)
+2. Current working directory
+3. Solution root directory
+
+> 📖 **For detailed configuration documentation including error handling, environment variable examples, and migration guidance, see `CONFIGURATION.md`**
+
+### File Structure Requirements
+
+**Required Input Files:**
+```
+{InputPath}/
+├── 69172.dat              # Main binary data file
+└── 2503supptable.txt       # Supplemental table file
+```
+
+**Generated Output Files:**
+```
+{OutputPath}/
+├── 69172.4300              # Container output (137,600 bytes)
+├── 69172p.asc              # MB2000 output (10,000 bytes)
+├── 69172e.txt              # Electronic bills (0 bytes for test case)
+├── 69172e.asc              # Electronic bills after split
+├── 69172p.asc.org          # Backup paper bills
+└── 69172.se1               # Supplemental table copy (39,186 bytes)
+```
+
+**Expected Files for Validation:**
+```
+{ExpectedOutputPath}/
+├── 69172.4300              # Expected container output
+├── 69172p.asc              # Expected MB2000 output
+├── 69172e.txt              # Expected electronic bills
+└── 69172.se1               # Expected supplemental table
+```
+
+### Configuration Examples for Different Scenarios
+
+#### Scenario 1: New Job Numbers
+
+```bash
+# For job number 12345 instead of 69172
+# Ensure these files exist in InputPath:
+mkdir -p /path/to/input
+cp your_data_file.dat /path/to/input/12345.dat
+cp 2503supptable.txt /path/to/input/
+
+# Run pipeline
+dotnet run --project LegacyModernization.Pipeline 12345
+```
+
+#### Scenario 2: Different Client Setup
+
+```csharp
+// Modify constants in PipelineConfiguration.cs for different client
+public const string ClientDept = "999901";      // New client department
+public const string ServiceType = "420";        // New service type
+public const string SupplementalTableFile = "9999supptable.txt"; // New supplemental file
+```
+
+#### Scenario 3: Network Drives
+
+```csharp
+var config = new PipelineConfiguration
+{
+    ProjectBase = @"\\Server\LegacyModernization",
+    InputPath = @"\\DataServer\MonthlyInput",
+    OutputPath = @"\\DataServer\MonthlyOutput",
+    LogPath = @"\\LogServer\ApplicationLogs",
+    ExpectedOutputPath = @"\\ValidationServer\ExpectedResults"
+};
+```
+
+### Configuration Validation
+
+The system validates paths automatically:
+
+```csharp
+// Check if configuration is valid
+if (!config.IsValid())
+{
+    throw new InvalidOperationException("Invalid configuration: Missing required paths");
+}
+
+// Automatic directory creation
+Directory.CreateDirectory(config.InputPath);
+Directory.CreateDirectory(config.OutputPath);
+Directory.CreateDirectory(config.LogPath);
+```
+
+### Key Configuration Files to Modify
+
+1. **`LegacyModernization.Core/Configuration/PipelineConfiguration.cs`** - Main path configuration
+2. **`LegacyModernization.Validation/ValidationRunner.cs`** - Expected output path (line 193)
+3. **`LegacyModernization.Tests/Validation/SupplementalFileValidationTests.cs`** - Test expected path (line 38)
+
+### Quick Setup for New Environment
+
+```bash
+# 1. Clone/copy project to new location
+# 2. Update paths in PipelineConfiguration.cs
+# 3. Create required directories
+mkdir -p /your/custom/input
+mkdir -p /your/custom/output  
+mkdir -p /your/custom/logs
+mkdir -p /your/custom/expected
+
+# 4. Copy input files
+cp your_binary_file.dat /your/custom/input/69172.dat
+cp 2503supptable.txt /your/custom/input/
+
+# 5. Copy expected files for validation
+cp expected_files/* /your/custom/expected/
+
+# 6. Build and run
+dotnet build
+dotnet run --project LegacyModernization.Pipeline 69172 --verbose
+```
 
 The application uses structured configuration through the `PipelineConfiguration` class:
 

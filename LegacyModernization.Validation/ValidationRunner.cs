@@ -190,7 +190,12 @@ namespace LegacyModernization.Validation
                 }
 
                 var jobNumber = args[0];
-                var expectedOutputPath = @"c:\Users\Shan\Documents\Legacy Mordernization\MBCNTR2053_Expected_Output";
+                
+                // Use centralized configuration from Core project's appsettings.json
+                var solutionRoot = GetSolutionRoot();
+                var config = PipelineConfiguration.CreateWithFallback(solutionRoot);
+                var expectedOutputPath = config.ExpectedOutputPath;
+                
                 var outputFormat = "text"; // Default format
                 var useEnhancedValidation = false;
                 var validationLevel = "basic"; // Default level
@@ -389,6 +394,27 @@ namespace LegacyModernization.Validation
             {
                 Log.CloseAndFlush();
             }
+        }
+
+        /// <summary>
+        /// Gets the solution root directory by looking for the .sln file
+        /// </summary>
+        /// <returns>Path to the solution root directory</returns>
+        private static string GetSolutionRoot()
+        {
+            var currentDirectory = Directory.GetCurrentDirectory();
+            var directory = new DirectoryInfo(currentDirectory);
+
+            while (directory != null)
+            {
+                if (directory.GetFiles("*.sln").Length > 0)
+                {
+                    return directory.FullName;
+                }
+                directory = directory.Parent;
+            }
+
+            throw new InvalidOperationException("Could not find solution root directory");
         }
     }
 }

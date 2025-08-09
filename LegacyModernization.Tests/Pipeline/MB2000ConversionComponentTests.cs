@@ -135,8 +135,9 @@ namespace LegacyModernization.Tests.Pipeline
         [Fact]
         public async Task ValidateFieldAlignmentWithExpectedOutput()
         {
-            // Read the expected output for comparison
-            var expectedOutputPath = Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "..", "MBCNTR2053_Expected_Output", "expected_p.txt");
+            // Read the expected output for comparison using relative path resolution
+            var solutionRoot = GetSolutionRoot();
+            var expectedOutputPath = Path.Combine(Path.GetDirectoryName(solutionRoot)!, "MBCNTR2053_Expected_Output", "expected_p.txt");
             
             if (!File.Exists(expectedOutputPath))
             {
@@ -196,6 +197,27 @@ namespace LegacyModernization.Tests.Pipeline
             // Fail if too many mismatches (more than 10% of fields checked)
             var mismatchPercentage = (double)mismatches.Count / maxFields * 100;
             mismatchPercentage.Should().BeLessThan(50, $"Too many field mismatches: {mismatchPercentage:F1}%");
+        }
+
+        /// <summary>
+        /// Gets the solution root directory by looking for the .sln file
+        /// </summary>
+        /// <returns>Path to the solution root directory</returns>
+        private string GetSolutionRoot()
+        {
+            var currentDirectory = Directory.GetCurrentDirectory();
+            var directory = new DirectoryInfo(currentDirectory);
+
+            while (directory != null)
+            {
+                if (directory.GetFiles("*.sln").Length > 0)
+                {
+                    return directory.FullName;
+                }
+                directory = directory.Parent;
+            }
+
+            throw new InvalidOperationException("Could not find solution root directory");
         }
 
         public void Dispose()

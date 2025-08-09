@@ -22,7 +22,19 @@ namespace LegacyModernization.Pipeline
             
             // Navigate up to solution root (typically 4 levels: bin/Debug/net8.0/LegacyModernization.Pipeline -> project root)
             var solutionRoot = GetSolutionRoot(projectBase);
-            var config = PipelineConfiguration.CreateDefault(solutionRoot);
+            
+            // Try configuration hierarchy: Environment Variables → appsettings.json → Error
+            PipelineConfiguration config;
+            try
+            {
+                config = PipelineConfiguration.CreateWithFallback(solutionRoot);
+            }
+            catch (InvalidOperationException ex)
+            {
+                Console.WriteLine("Configuration Error:");
+                Console.WriteLine(ex.Message);
+                return 1;
+            }
 
             // Parse arguments first to get log level
             var arguments = ParseArguments(args);
