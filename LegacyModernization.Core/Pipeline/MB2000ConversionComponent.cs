@@ -15,7 +15,8 @@ namespace LegacyModernization.Core.Pipeline
 {
     /// <summary>
     /// MB2000 Conversion Implementation Component
-    /// UPDATED: Now implements two-stage conversion (Binary→ASCII→MB2000)
+    /// ARCHITECTURE: Runs in PARALLEL with Container Step 1, both reading original binary file
+    /// INTERNAL PROCESSING: Implements internal two-stage conversion (Binary→ASCII→MB2000)
     /// Equivalent to mbcnvt0.c + setmb2000.cbl processing pipeline
     /// </summary>
     public class MB2000ConversionComponent
@@ -37,8 +38,9 @@ namespace LegacyModernization.Core.Pipeline
         }
 
         /// <summary>
-        /// Execute MB2000 conversion processing with two-stage architecture
-        /// UPDATED: Binary→ASCII→MB2000 conversion (mbcnvt0.c + setmb2000.cbl)
+        /// Execute MB2000 conversion processing (PARALLEL to Container Step 1)
+        /// INTERNAL ARCHITECTURE: Binary→ASCII→MB2000 conversion (mbcnvt0.c + setmb2000.cbl)
+        /// PIPELINE ARCHITECTURE: Runs in parallel with Container Step 1, both reading original binary
         /// </summary>
         /// <param name="arguments">Pipeline arguments</param>
         /// <returns>MB2000 conversion result</returns>
@@ -46,7 +48,7 @@ namespace LegacyModernization.Core.Pipeline
         {
             try
             {
-                _progressReporter.ReportStep("MB2000 Conversion", "Starting two-stage MB2000 conversion (Binary→ASCII→MB2000)", false);
+                _progressReporter.ReportStep("MB2000 Conversion", "Starting MB2000 conversion (PARALLEL to Container Step 1, internal Binary→ASCII→MB2000)", false);
 
                 // Parse parameters equivalent to setmb2000.script parameter processing
                 var conversionParams = await ParseConversionParametersAsync(arguments);
